@@ -15,33 +15,44 @@ TEST(ThreadPoolTest, simple)
 	xo::thread_pool::thread_pool_t pool(4);
 
 	// Example of enqueueing tasks
-	auto result1 = pool.enqueue([](std::stop_token stoken, int x) {
+	auto result1 = pool.enqueue([](std::stop_token stoken, int x) -> std::expected<int, xo::thread_pool::error_t> {
 		if (stoken.stop_requested())
 		{
-			return 0;
+			return std::unexpected(xo::thread_pool::error_t::stop_requested);
 		}
 
 		return x * x;
 	}, 10);
 
-	auto result2 = pool.enqueue([](std::stop_token stoken) {
+	auto result2 = pool.enqueue([](std::stop_token stoken, std::string_view suffix) -> std::expected<std::string, xo::thread_pool::error_t> {
 		if (stoken.stop_requested())
 		{
-			return std::string();
+			return std::unexpected(xo::thread_pool::error_t::stop_requested);
 		}
 
-		return std::string("Hello");
+		return std::string("Hello").append(suffix);
+	}, std::string(" world"));
+
+	auto result3 = pool.enqueue([](std::stop_token /*stoken*/) -> std::expected<std::string, xo::thread_pool::error_t> {
+		return std::unexpected(xo::thread_pool::error_t::error);
 	});
 
-	std::this_thread::sleep_for(1s);
-
 	// Get results
-	ASSERT_EQ(result1.get(), 100);
-	ASSERT_EQ(result2.get(), "Hello");
+	auto const v1 = result1.get();
+	ASSERT_TRUE(v1.has_value());
+	ASSERT_EQ(v1.value(), 100);
+
+	auto const v2 = result2.get();
+	ASSERT_TRUE(v2.has_value());
+	ASSERT_EQ(v2.value(), "Hello world");
+
+	auto const v3 = result3.get();
+	ASSERT_TRUE(!v3.has_value());
+	ASSERT_EQ(v3.error(), xo::thread_pool::error_t::error);
 }
 
 int main(int argc, char* argv[])
 {
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
-}
+} 

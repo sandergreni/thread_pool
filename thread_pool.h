@@ -8,9 +8,16 @@
 #include <future>
 #include <ranges>
 #include <algorithm>
+#include <expected>
 
 namespace xo::thread_pool
 {
+	enum class error_t
+	{
+		error,
+		stop_requested,
+	};
+
 	class thread_pool_t
 	{
 		using task_t = std::function<void(std::stop_token)>;
